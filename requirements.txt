@@ -21,9 +21,12 @@ MarkupSafe==3.0.2
 mdurl==0.1.2
 ordered-set==4.1.0
 packaging==24.2
+pillow==11.1.0
 Pygments==2.19.1
 PyJWT==2.10.1
+pyotp==2.9.0
 python-dotenv==1.1.0
+qrcode==8.1
 rich==13.9.4
 SQLAlchemy==2.0.39
 typing_extensions==4.12.2

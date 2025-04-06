@@ -1,10 +1,75 @@
 <!DOCTYPE html>
 <html>
-<head>
+  <head>
     <title>Dashboard</title>
-</head>
-<body>
-    <h2>Bienvenido, {{ username }}!</h2>
-    <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
-</body>
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    />
+  </head>
+  <body>
+    <div class="container mt-5">
+      <div class="row justify-content-center">
+        <div class="col-md-8">
+          <div class="card">
+            <div class="card-header d-flex justify-content-between">
+              <h3>Bienvenido, {{ username }}</h3>
+              <a
+                href="{{ url_for('logout') }}"
+                class="btn btn-sm btn-outline-danger"
+                >Cerrar sesión</a
+              >
+            </div>
+            <div class="card-body">
+              {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %} {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">{{ message }}</div>
+              {% endfor %} {% endif %} {% endwith %}
+
+              <h4>Estado de seguridad</h4>
+              <div class="card mb-4">
+                <div class="card-body">
+                  <div
+                    class="d-flex justify-content-between align-items-center"
+                  >
+                    <div>
+                      <h5>Autenticación de dos factores</h5>
+                      {% if is_2fa_enabled %}
+                      <span class="badge badge-success">Activado</span>
+                      {% else %}
+                      <span class="badge badge-warning">Desactivado</span>
+                      {% endif %}
+                    </div>
+                    <div>
+                      {% if is_2fa_enabled %}
+                      <form method="POST" action="{{ url_for('disable_2fa') }}">
+                        <button type="submit" class="btn btn-danger">
+                          Desactivar 2FA
+                        </button>
+                      </form>
+                      {% else %}
+                      <a
+                        href="{{ url_for('setup_2fa') }}"
+                        class="btn btn-primary"
+                        >Configurar 2FA</a
+                      >
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="alert alert-info">
+                <p><strong>Información de JWT</strong></p>
+                <p>
+                  Si estás desarrollando una API, puedes usar el endpoint
+                  <code>/api/login</code> para obtener un token JWT.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
 </html>

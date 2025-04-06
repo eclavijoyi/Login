@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Configurar 2FA</title>
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    />
+  </head>
+  <body>
+    <div class="container mt-5">
+      <div class="row justify-content-center">
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header">
+              <h3>Configurar autenticación de dos factores</h3>
+            </div>
+            <div class="card-body">
+              {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %} {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">{{ message }}</div>
+              {% endfor %} {% endif %} {% endwith %}
+
+              <p>
+                1. Escanea el código QR con tu aplicación de autenticación
+                (Google Authenticator, Authy, etc.)
+              </p>
+              <div class="text-center mb-4">
+                <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code" />
+              </div>
+
+              <p>
+                2. Si no puedes escanear el código, puedes ingresar esta clave
+                secreta manualmente:
+              </p>
+              <div class="alert alert-info text-center">
+                <code>{{ secret }}</code>
+              </div>
+
+              <p>3. Ingresa el código de verificación de tu aplicación:</p>
+              <form method="POST" action="{{ url_for('enable_2fa') }}">
+                <div class="form-group">
+                  <input
+                    type="text"
+                    name="code"
+                    class="form-control"
+                    placeholder="Código de verificación"
+                  />
+                </div>
+                <div class="form-group">
+                  <button type="submit" class="btn btn-success btn-block">
+                    Habilitar 2FA
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
