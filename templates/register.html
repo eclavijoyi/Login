@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Registro</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: Arial, sans-serif;
+      }
+
+      body {
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: linear-gradient(135deg, #4e89e8 0%, #9162e4 100%);
+      }
+
+      .register-container {
+        background-color: white;
+        width: 100%;
+        max-width: 450px;
+        padding: 40px;
+        border-radius: 8px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      h1 {
+        text-align: center;
+        margin-bottom: 40px;
+        color: #222;
+        font-size: 32px;
+      }
+
+      .input-group {
+        margin-bottom: 20px;
+      }
+
+      /* Estilos para inputs */
+      input[type="email"],
+      input[type="password"],
+      input[type="text"] {
+        width: 100%;
+        padding: 10px 5px;
+        border: none;
+        border-bottom: 1px solid #ccc;
+        outline: none;
+        font-size: 16px;
+        color: #444;
+        margin-bottom: 5px;
+      }
+
+      .form-control {
+        width: 100%;
+        padding: 10px 5px;
+        border: none;
+        border-bottom: 1px solid #ccc;
+        outline: none;
+        font-size: 16px;
+        color: #444;
+        margin-bottom: 5px;
+      }
+
+      input::placeholder {
+        color: #aaa;
+      }
+
+      /* Estilos para el botón de envío */
+      input[type="submit"] {
+        width: 100%;
+        padding: 12px;
+        background: linear-gradient(90deg, #4e89e8 0%, #9162e4 100%);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        cursor: pointer;
+        margin-top: 20px;
+        margin-bottom: 20px;
+      }
+
+      .submit-btn {
+        width: 100%;
+        padding: 12px;
+        background: linear-gradient(90deg, #4e89e8 0%, #9162e4 100%);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        cursor: pointer;
+        margin-top: 20px;
+        margin-bottom: 20px;
+      }
+
+      .login-link {
+        text-align: center;
+      }
+
+      .login-link a {
+        color: #4e89e8;
+        text-decoration: none;
+        font-weight: bold;
+      }
+
+      /* Hide labels visually but keep them accessible for screen readers */
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        border: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="register-container">
+      <h1>Registro de Usuario</h1>
+      <form method="POST">
+        {{ form.hidden_tag() }}
+
+        <div class="input-group">
+          <label for="{{ form.username.id }}" class="visually-hidden"
+            >{{ form.username.label.text }}</label
+          >
+          {{ form.username(placeholder="Nombre de usuario",
+          class="form-control") }}
+        </div>
+
+        <div class="input-group">
+          <label for="{{ form.email.id }}" class="visually-hidden"
+            >{{ form.email.label.text }}</label
+          >
+          {{ form.email(placeholder="Email", class="form-control") }}
+        </div>
+
+        <div class="input-group">
+          <label for="{{ form.password.id }}" class="visually-hidden"
+            >{{ form.password.label.text }}</label
+          >
+          {{ form.password(placeholder="Contraseña", class="form-control") }}
+        </div>
+
+        <div class="input-group">
+          <label for="{{ form.confirm_password.id }}" class="visually-hidden"
+            >{{ form.confirm_password.label.text }}</label
+          >
+          {{ form.confirm_password(placeholder="Confirmar contraseña",
+          class="form-control") }}
+        </div>
+
+        {{ form.submit(class="submit-btn") }}
+
+        <div class="login-link">
+          ¿Ya tienes cuenta? <a href="{{ url_for('login') }}">Inicia sesión</a>
+        </div>
+      </form>
+    </div>
+  </body>
+</html>
