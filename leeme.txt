@@ -1,0 +1,19 @@
+no olvidar crear el archivo .env :
+
+SECRET_KEY=tu-clave-secreta
+JWT_SECRET_KEY= tu-clave-secreta
+
+Cómo usar JWT en tu aplicación:
+
+Para autenticación web tradicional: Sigue usando las rutas existentes como /login y el decorador @login_required
+Para autenticación API:
+
+Haz una petición POST a /api/login con JSON: {"email": "usuario@ejemplo.com", "password": "clave"}
+Recibirás un token JWT
+Para acceder a rutas protegidas, incluye el token en el header: Authorization: Bearer <tu_token>
+
+
+Para verificar la identidad en rutas protegidas:
+
+Usa el decorador @jwt_required()
+Obtén el ID del usuario con get_jwt_identity()
