@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  login-app:
+    build: .
+    restart: always
+    environment:
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
+    networks:
+      - traefik
+    labels:
+      # Configuración general
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+
+      # Configuración HTTP
+      - "traefik.http.routers.login-app-http.rule=Host(`${DOMAIN_NAME}`)"
+      - "traefik.http.routers.login-app-http.entrypoints=web"
+      - "traefik.http.services.login-app.loadbalancer.server.port=5001"
+
+      # Middleware para redirección a HTTPS
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.routers.login-app-http.middlewares=redirect-to-https@docker"
+
+      # Configuración HTTPS
+      - "traefik.http.routers.login-app-https.rule=Host(`${DOMAIN_NAME}`)"
+      - "traefik.http.routers.login-app-https.entrypoints=web-secure"
+      - "traefik.http.routers.login-app-https.tls=true"
+      - "traefik.http.routers.login-app-https.tls.certresolver=myhttpchallenge"
+
+networks:
+  traefik:
+    external: true
