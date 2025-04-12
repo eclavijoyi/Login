@@ -32,14 +32,8 @@ Este proyecto es una aplicación web desarrollada con **Flask** que implementa a
 
 ```bash
 git clone https://github.com/eclavijoyi/Login.git
-<<<<<<< HEAD
-cd tu_repositorio
-python3 -m venv venv
-source venv/bin/activate  # En Windows: venv\Scripts\activate
-=======
 cd Login
 python3 -m venv venv
->>>>>>> develop
 pip install -r requirements.txt
 ```
 

@@ -5,7 +5,7 @@ services:
     build: .
     restart: always
     environment:
-      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
+      - FLASK_SECRET_KEY=${SECRET_KEY}
     networks:
       - traefik
     labels:
