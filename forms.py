@@ -12,7 +12,7 @@ class RegisterForm(FlaskForm):
 class LoginForm(FlaskForm):
     email = StringField('Correo Electrónico', validators=[DataRequired(), Email()])
     password = PasswordField('Contraseña', validators=[DataRequired()])
-    submit = SubmitField('Iniciar Sesión')
+    submit = SubmitField('Iniciar Sesión',name='login_submit') # ¡Este es el cambio!
 
 class ForgotPasswordForm(FlaskForm):
     email = StringField('Correo Electrónico', validators=[DataRequired(), Email()])

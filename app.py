@@ -15,6 +15,7 @@ import pyotp
 import qrcode
 import io
 import base64
+import requests  # Para hacer solicitudes HTTP a la API de reCAPTCHA
 
 load_dotenv()
 
@@ -29,6 +30,13 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)  # Token expira en 1 hora
 
+# Configuración reCAPTCHA
+app.config['RECAPTCHA_SITE_KEY'] = os.environ.get('RECAPTCHA_SITE_KEY')
+app.config['RECAPTCHA_SECRET_KEY'] = os.environ.get('RECAPTCHA_SECRET_KEY')
+app.config['RECAPTCHA_VERIFY_URL'] = "https://www.google.com/recaptcha/api/siteverify"
+app.config['RECAPTCHA_THRESHOLD'] = 0.5  # Umbral para considerar una acción como válida
+app.config['RECAPTCHA_ENABLED'] = os.environ.get('RECAPTCHA_ENABLED', 'true').lower() == 'true'
+
 # Inicializar extensiones
 db.init_app(app)
 bcrypt = Bcrypt(app)
@@ -42,6 +50,54 @@ limiter = Limiter(
 )
 limiter.init_app(app)
 
+# Función mejorada para verificar reCAPTCHA
+def verify_recaptcha(token, action):
+    # Si reCAPTCHA está desactivado, siempre devolvemos True
+    if not app.config['RECAPTCHA_ENABLED']:
+        app.logger.info("reCAPTCHA desactivado: omitiendo verificación")
+        return True
+    
+    # En modo debug, podemos usar un bypass adicional
+    if app.debug and os.environ.get('BYPASS_RECAPTCHA', 'false').lower() == 'true':
+        app.logger.info("Modo de desarrollo: omitiendo verificación de reCAPTCHA")
+        return True
+    
+    if not token:
+        app.logger.warning("No se recibió token de reCAPTCHA")
+        return False
+    
+    data = {
+        'secret': app.config['RECAPTCHA_SECRET_KEY'],
+        'response': token
+    }
+    
+    try:
+        response = requests.post(app.config['RECAPTCHA_VERIFY_URL'], data=data)
+        result = response.json()
+        app.logger.info(f"Respuesta de reCAPTCHA: {result}")
+        
+        # Comprueba primero el éxito básico
+        if not result.get('success'):
+            app.logger.warning("La verificación de reCAPTCHA no fue exitosa")
+            return False
+        
+        # Verificar la acción solo si está presente en el resultado
+        if 'action' in result and result.get('action') != action:
+            app.logger.warning(f"Acción incorrecta: {result.get('action')} vs {action}")
+            return False
+        
+        # Verificar el score
+        if result.get('score', 0) < app.config['RECAPTCHA_THRESHOLD']:
+            app.logger.warning(f"Score demasiado bajo: {result.get('score')}")
+            return False
+        
+        return True
+    
+    except Exception as e:
+        app.logger.error(f"Error al verificar reCAPTCHA: {e}")
+        # En caso de error, permitimos el paso si estamos en modo debug
+        return app.debug
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -54,6 +110,12 @@ def home():
 def register():
     form = RegisterForm()
     if form.validate_on_submit():
+        # Verificar reCAPTCHA
+        recaptcha_token = request.form.get('g-recaptcha-response')
+        if not verify_recaptcha(recaptcha_token, 'register'):
+            flash('Falló la verificación de seguridad. Por favor, inténtalo de nuevo.', 'danger')
+            return render_template('register.html', form=form, recaptcha_site_key=app.config['RECAPTCHA_SITE_KEY'])
+        
         try:
             existing_user = User.query.filter_by(email=form.email.data).first()
             if existing_user:
@@ -82,32 +144,51 @@ def register():
             flash('Error al registrar el usuario. El correo electrónico ya existe.', 'danger')
             return redirect(url_for('register'))
     
-    return render_template('register.html', form=form)
+    return render_template('register.html', form=form, recaptcha_site_key=app.config['RECAPTCHA_SITE_KEY'])
 
 @app.route('/login', methods=['GET', 'POST'])
 @limiter.limit("5 per minute")
 def login():
     form = LoginForm()
     if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data).first()
-        if user and bcrypt.check_password_hash(user.password, form.password.data):
-            # Si el usuario tiene 2FA habilitado, redirige a la verificación
-            if user.is_2fa_enabled:
-                session['user_id_for_2fa'] = user.id
-                return redirect(url_for('verify_2fa'))
+        try:
+            # Verificar reCAPTCHA con manejo de errores mejorado
+            recaptcha_token = request.form.get('g-recaptcha-response')
+            app.logger.info(f"Token recibido: {recaptcha_token[:20]}..." if recaptcha_token else "No se recibió token")
             
-            # Si no tiene 2FA, procede con el login normal
-            login_user(user)
+            if not verify_recaptcha(recaptcha_token, 'login'):
+                flash('Falló la verificación de seguridad. Por favor, inténtalo de nuevo.', 'danger')
+                return render_template('login.html', form=form, recaptcha_site_key=app.config['RECAPTCHA_SITE_KEY'])
             
-            # Generar el token JWT
-            access_token = create_access_token(identity=user.id)
-            session['jwt_token'] = access_token
+            user = User.query.filter_by(email=form.email.data).first()
+            app.logger.info(f"Usuario encontrado: {user is not None}")
             
-            flash('Inicio de sesión exitoso', 'success')
-            return redirect(url_for('dashboard'))
-        else:
-            flash('Credenciales incorrectas. ¿Olvidaste tu contraseña?', 'danger')
-    return render_template('login.html', form=form)
+            if user and bcrypt.check_password_hash(user.password, form.password.data):
+                app.logger.info("Contraseña válida")
+                # Si el usuario tiene 2FA habilitado, redirige a la verificación
+                if user.is_2fa_enabled:
+                    app.logger.info("2FA está habilitado, redirigiendo a verificación")
+                    session['user_id_for_2fa'] = user.id
+                    return redirect(url_for('verify_2fa'))
+                
+                # Si no tiene 2FA, procede con el login normal
+                app.logger.info("Iniciando sesión del usuario")
+                login_user(user)
+                
+                # Generar el token JWT
+                access_token = create_access_token(identity=user.id)
+                session['jwt_token'] = access_token
+                
+                flash('Inicio de sesión exitoso', 'success')
+                return redirect(url_for('dashboard'))
+            else:
+                app.logger.warning("Credenciales inválidas")
+                flash('Credenciales incorrectas. ¿Olvidaste tu contraseña?', 'danger')
+        except Exception as e:
+            app.logger.error(f"Error durante el login: {e}")
+            flash('Ocurrió un error durante el inicio de sesión. Por favor, inténtalo de nuevo.', 'danger')
+    
+    return render_template('login.html', form=form, recaptcha_site_key=app.config['RECAPTCHA_SITE_KEY'])
 
 @app.route('/verify_2fa', methods=['GET', 'POST'])
 def verify_2fa():
@@ -117,6 +198,12 @@ def verify_2fa():
     form = VerifyForm()
     
     if form.validate_on_submit():
+        # Verificar reCAPTCHA
+        recaptcha_token = request.form.get('g-recaptcha-response')
+        if not verify_recaptcha(recaptcha_token, 'verify_2fa'):
+            flash('Falló la verificación de seguridad. Por favor, inténtalo de nuevo.', 'danger')
+            return render_template('verify_2fa.html', form=form, recaptcha_site_key=app.config['RECAPTCHA_SITE_KEY'])
+        
         user = User.query.get(session['user_id_for_2fa'])
         
         if not user:
@@ -141,7 +228,31 @@ def verify_2fa():
         else:
             flash('Código incorrecto', 'danger')
     
-    return render_template('verify_2fa.html', form=form)
+    return render_template('verify_2fa.html', form=form, recaptcha_site_key=app.config['RECAPTCHA_SITE_KEY'])
+
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    form = ForgotPasswordForm()
+    if form.validate_on_submit():
+        # Verificar reCAPTCHA
+        recaptcha_token = request.form.get('g-recaptcha-response')
+        if not verify_recaptcha(recaptcha_token, 'forgot_password'):
+            flash('Falló la verificación de seguridad. Por favor, inténtalo de nuevo.', 'danger')
+            return render_template('forgot_password.html', form=form, recaptcha_site_key=app.config['RECAPTCHA_SITE_KEY'])
+        
+        user = User.query.filter_by(email=form.email.data).first()
+        if user:
+            try:
+                db.session.delete(user)
+                db.session.commit()
+                flash('Cuenta eliminada. Puedes registrarte nuevamente.', 'info')
+                return redirect(url_for('register'))
+            except Exception as e:
+                db.session.rollback()
+                flash('Error al eliminar la cuenta. Inténtalo nuevamente.', 'danger')
+        else:
+            flash('No existe una cuenta con este correo electrónico.', 'danger')
+    return render_template('forgot_password.html', form=form, recaptcha_site_key=app.config['RECAPTCHA_SITE_KEY'])
 
 @app.route('/setup_2fa')
 @login_required
@@ -164,12 +275,19 @@ def setup_2fa():
     return render_template(
         'setup_2fa.html', 
         qr_code=img_str, 
-        secret=current_user.totp_secret
+        secret=current_user.totp_secret,
+        recaptcha_site_key=app.config['RECAPTCHA_SITE_KEY']
     )
 
 @app.route('/enable_2fa', methods=['POST'])
 @login_required
 def enable_2fa():
+    # Verificar reCAPTCHA
+    recaptcha_token = request.form.get('g-recaptcha-response')
+    if not verify_recaptcha(recaptcha_token, 'enable_2fa'):
+        flash('Falló la verificación de seguridad. Por favor, inténtalo de nuevo.', 'danger')
+        return redirect(url_for('setup_2fa'))
+    
     code = request.form.get('code')
     
     totp = pyotp.TOTP(current_user.totp_secret)
@@ -187,6 +305,12 @@ def enable_2fa():
 @app.route('/disable_2fa', methods=['POST'])
 @login_required
 def disable_2fa():
+    # Verificar reCAPTCHA
+    recaptcha_token = request.form.get('g-recaptcha-response')
+    if not verify_recaptcha(recaptcha_token, 'disable_2fa'):
+        flash('Falló la verificación de seguridad. Por favor, inténtalo de nuevo.', 'danger')
+        return redirect(url_for('dashboard'))
+    
     current_user.is_2fa_enabled = False
     db.session.commit()
     flash('Autenticación de dos factores deshabilitada', 'info')
@@ -198,6 +322,11 @@ def disable_2fa():
 def api_login():
     if not request.is_json:
         return jsonify({"msg": "Missing JSON in request"}), 400
+    
+    # Verificar reCAPTCHA
+    recaptcha_token = request.json.get('recaptcha_token')
+    if not verify_recaptcha(recaptcha_token, 'api_login'):
+        return jsonify({"msg": "Falló la verificación de seguridad"}), 400
     
     email = request.json.get('email', None)
     password = request.json.get('password', None)
@@ -229,6 +358,11 @@ def api_verify_2fa():
     if not request.is_json:
         return jsonify({"msg": "Missing JSON in request"}), 400
     
+    # Verificar reCAPTCHA
+    recaptcha_token = request.json.get('recaptcha_token')
+    if not verify_recaptcha(recaptcha_token, 'api_verify_2fa'):
+        return jsonify({"msg": "Falló la verificación de seguridad"}), 400
+    
     email = request.json.get('email', None)
     totp_code = request.json.get('totp_code', None)
     
@@ -245,24 +379,6 @@ def api_verify_2fa():
         return jsonify(access_token=access_token), 200
     
     return jsonify({"msg": "Código 2FA incorrecto"}), 401
-
-@app.route('/forgot_password', methods=['GET', 'POST'])
-def forgot_password():
-    form = ForgotPasswordForm()
-    if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data).first()
-        if user:
-            try:
-                db.session.delete(user)
-                db.session.commit()
-                flash('Cuenta eliminada. Puedes registrarte nuevamente.', 'info')
-                return redirect(url_for('register'))
-            except Exception as e:
-                db.session.rollback()
-                flash('Error al eliminar la cuenta. Inténtalo nuevamente.', 'danger')
-        else:
-            flash('No existe una cuenta con este correo electrónico.', 'danger')
-    return render_template('forgot_password.html', form=form)
 
 @app.route('/dashboard')
 @login_required
@@ -310,6 +426,12 @@ def invalid_token_callback(error):
         'sub_status': 43,
         'msg': 'Token inválido'
     }), 401
+
+# Configurar logging para desarrollo
+if app.debug:
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    app.logger.setLevel(logging.INFO)
 
 with app.app_context():
     db.create_all()

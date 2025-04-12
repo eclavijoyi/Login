@@ -11,7 +11,6 @@
         box-sizing: border-box;
         font-family: Arial, sans-serif;
       }
-
       body {
         height: 100vh;
         display: flex;
@@ -19,7 +18,6 @@
         align-items: center;
         background: linear-gradient(135deg, #4e89e8 0%, #9162e4 100%);
       }
-
       .login-container {
         background-color: white;
         width: 100%;
@@ -28,19 +26,15 @@
         border-radius: 8px;
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
       }
-
       h1 {
         text-align: center;
         margin-bottom: 40px;
         color: #222;
         font-size: 32px;
       }
-
       .input-group {
         margin-bottom: 20px;
       }
-
-      /* Estilos para inputs */
       input[type="email"],
       input[type="password"],
       input[type="text"] {
@@ -53,7 +47,6 @@
         color: #444;
         margin-bottom: 5px;
       }
-
       .form-control {
         width: 100%;
         padding: 10px 5px;
@@ -64,26 +57,10 @@
         color: #444;
         margin-bottom: 5px;
       }
-
       input::placeholder {
         color: #aaa;
       }
-
-      /* Estilos para el botón de envío */
-      input[type="submit"] {
-        width: 100%;
-        padding: 12px;
-        background: linear-gradient(90deg, #4e89e8 0%, #9162e4 100%);
-        color: white;
-        border: none;
-        border-radius: 4px;
-        font-size: 16px;
-        cursor: pointer;
-        margin-top: 20px;
-        margin-bottom: 20px;
-      }
-
-      /* Adicional para asegurar que el botón se estilice correctamente */
+      input[type="submit"],
       .submit-btn {
         width: 100%;
         padding: 12px;
@@ -96,28 +73,23 @@
         margin-top: 20px;
         margin-bottom: 20px;
       }
-
       .forgot-password {
         text-align: center;
         margin-bottom: 10px;
       }
-
       .forgot-password a {
         color: #4e89e8;
         text-decoration: none;
       }
-
       .signup {
         text-align: center;
       }
-
       .signup a {
         color: #4e89e8;
         text-decoration: none;
         font-weight: bold;
       }
-
-      /* Hide labels visually but keep them accessible for screen readers */
+      /* Oculta las etiquetas visualmente pero las mantiene accesibles */
       .visually-hidden {
         position: absolute;
         width: 1px;
@@ -128,43 +100,138 @@
         clip: rect(0, 0, 0, 0);
         border: 0;
       }
+      .debug-info {
+        margin-top: 20px;
+        font-size: 12px;
+        color: #888;
+        display: none;
+      }
     </style>
   </head>
   <body>
     <div class="login-container">
       <h1>Login</h1>
-      <form method="POST">
+      <form method="POST" id="login-form">
         {{ form.hidden_tag() }}
 
         <div class="input-group">
-          <label for="{{ form.email.id }}" class="visually-hidden"
-            >{{ form.email.label.text }}</label
-          >
+          <label for="{{ form.email.id }}" class="visually-hidden">
+            {{ form.email.label.text }}
+          </label>
           {{ form.email(placeholder="Email", class="form-control") }}
         </div>
 
         <div class="input-group">
-          <label for="{{ form.password.id }}" class="visually-hidden"
-            >{{ form.password.label.text }}</label
-          >
+          <label for="{{ form.password.id }}" class="visually-hidden">
+            {{ form.password.label.text }}
+          </label>
           {{ form.password(placeholder="Password", class="form-control") }}
         </div>
 
-        {# Simplificando el botón de submit para evitar problemas #} {{
-        form.submit(class="submit-btn") }}
+        <!-- Campo oculto para el token de reCAPTCHA -->
+        <input
+          type="hidden"
+          id="g-recaptcha-response"
+          name="g-recaptcha-response"
+        />
+
+        {{ form.submit(class="submit-btn") }}
 
         <div class="forgot-password">
           <a href="{{ url_for('forgot_password') }}" class="text-muted"
             >¿Olvidaste tu contraseña?</a
           >
-          <!--<a href="#">Forgot Password?</a>-->
         </div>
 
         <div class="signup">
           Don't have an account? <a href="{{ url_for('register') }}">Sign up</a>
-          <!-- Don't have an account? <a href="#">Sign up</a>-->
+        </div>
+
+        <!-- Información de depuración (oculta por defecto) -->
+        <div class="debug-info" id="debug-info">
+          Estado reCAPTCHA: <span id="recaptcha-status">No cargado</span><br />
+          Token: <span id="recaptcha-token-preview">Ninguno</span>
         </div>
       </form>
     </div>
+
+    <!-- Script de reCAPTCHA v3 con manejo robusto de errores -->
+    <script src="https://www.google.com/recaptcha/api.js?render={{ recaptcha_site_key }}"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const debugInfo = document.getElementById("debug-info");
+        const recaptchaStatus = document.getElementById("recaptcha-status");
+        const tokenPreview = document.getElementById("recaptcha-token-preview");
+
+        // Mostrar información de depuración en desarrollo
+        if (
+          window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1"
+        ) {
+          debugInfo.style.display = "block";
+        }
+
+        // Función para obtener el token de reCAPTCHA
+        function obtenerToken(callback) {
+          grecaptcha.ready(function () {
+            grecaptcha
+              .execute("{{ recaptcha_site_key }}", { action: "login" })
+              .then(function (token) {
+                if (token) {
+                  document.getElementById("g-recaptcha-response").value = token;
+                  recaptchaStatus.textContent = "Token cargado";
+                  tokenPreview.textContent = token.substring(0, 10) + "...";
+                  console.log("Token reCAPTCHA pre-cargado");
+                } else {
+                  recaptchaStatus.textContent = "Token nulo recibido";
+                  tokenPreview.textContent = "N/A";
+                  console.warn("El token reCAPTCHA fue nulo");
+                }
+                // Se llama al callback independientemente del token obtenido
+                callback();
+              })
+              .catch(function (error) {
+                recaptchaStatus.textContent = "Error: " + error.message;
+                console.error("Error al cargar el token:", error);
+                // Llamamos al callback aun en caso de error
+                callback();
+              });
+          });
+        }
+
+        // Pre-cargar el token al cargar la página
+        try {
+          recaptchaStatus.textContent = "Cargando...";
+          obtenerToken(function () {});
+        } catch (error) {
+          recaptchaStatus.textContent = "Error: " + error.message;
+          console.error("Error en reCAPTCHA:", error);
+        }
+
+        // Manejar el envío del formulario
+        document
+          .getElementById("login-form")
+          .addEventListener("submit", function (e) {
+            // Si no hay token, intentamos obtenerlo de nuevo
+            if (!document.getElementById("g-recaptcha-response").value) {
+              e.preventDefault();
+              recaptchaStatus.textContent = "Reintentando obtener token...";
+              try {
+                obtenerToken(function () {
+                  recaptchaStatus.textContent =
+                    "Token obtenido, enviando formulario...";
+                  document.getElementById("login-form").submit();
+                });
+              } catch (error) {
+                recaptchaStatus.textContent = "Error crítico: " + error.message;
+                console.error("Error crítico en reCAPTCHA:", error);
+                // Enviamos el formulario de todos modos
+                document.getElementById("login-form").submit();
+              }
+            }
+            // Si ya hay token, se permite el envío normal del formulario
+          });
+      });
+    </script>
   </body>
 </html>
