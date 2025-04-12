@@ -3,6 +3,14 @@ no olvidar crear el archivo .env :
 SECRET_KEY=tu-clave-secreta
 JWT_SECRET_KEY= tu-clave-secreta
 
+#RECAPTCHA V3
+RECAPTCHA_SITE_KEY=6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI
+RECAPTCHA_SECRET_KEY=6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe
+
+RECAPTCHA_ENABLED=false "true cuando esta en modo produccion"
+BYPASS_RECAPTCHA=true "false cuando esta en modo produccion"
+
+
 Cómo usar JWT en tu aplicación:
 
 Para autenticación web tradicional: Sigue usando las rutas existentes como /login y el decorador @login_required
