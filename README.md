@@ -37,6 +37,13 @@ python3 -m venv venv
 pip install -r requirements.txt
 ```
 
+```Docker
+Recuerda tener el servidor de Traefik en su vps instalado
+git clone https://github.com/eclavijoyi/Login.git
+cd Login
+docker-compose up -d
+```
+
 ---
 
 ## 🔑 Variables de entorno
@@ -50,6 +57,8 @@ RECAPTCHA_SITE_KEY=tu_clave_recaptcha_sitio
 RECAPTCHA_SECRET_KEY=tu_clave_recaptcha_servidor
 RECAPTCHA_ENABLED=true
 BYPASS_RECAPTCHA=false
+DOMAIN_NAME=tudominio.com
+IMAGE_NAME=nombre_de_tu_imagen_docker
 ```
 
 ---

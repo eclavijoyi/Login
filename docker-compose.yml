@@ -4,6 +4,7 @@ services:
   login-app:
     build: .
     restart: always
+    image: ${IMAGE_NAME}
     environment:
       - FLASK_SECRET_KEY=${SECRET_KEY}
     networks:
